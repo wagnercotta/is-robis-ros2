@@ -39,3 +39,22 @@ RUN cd src/ \
     && cd .. \
     && source /opt/ros/humble/setup.bash \
     && colcon build --packages-select ydlidar_ros2_driver
+
+RUN printf '%s\n' \
+'#!/usr/bin/env bash' \
+'set -e' \
+'' \
+'source /opt/ros/humble/setup.bash' \
+'' \
+'if [ -f /workspace/ros2_ws/install/setup.bash ]; then' \
+'    source /workspace/ros2_ws/install/setup.bash' \
+'fi' \
+'' \
+'exec "$@"' \
+> /ros_entrypoint.sh \
+&& chmod +x /ros_entrypoint.sh
+
+ENTRYPOINT ["/ros_entrypoint.sh"]
+CMD ["ros2", "launch", "odrive_ros2_pkg", "is_robis_ros2_launch.py", "namespace:=robis"]
+
+WORKDIR /workspace/ros2_ws

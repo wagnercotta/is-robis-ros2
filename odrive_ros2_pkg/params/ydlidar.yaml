@@ -21,7 +21,3 @@
     range_min: 0.1
     frequency: 10.0
     invalid_range_is_inf: false
-<<<<<<< Updated upstream
-    scan_gain: 0.88
-=======
->>>>>>> Stashed changes

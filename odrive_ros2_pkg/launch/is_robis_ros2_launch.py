@@ -15,6 +15,7 @@ from launch_ros.actions import LifecycleNode, Node
 def generate_launch_description():
     pkg_odrive = get_package_share_directory("odrive_ros2_pkg")
     namespace = LaunchConfiguration("namespace")
+    tf_remappings = [("/tf", "tf"), ("/tf_static", "tf_static")]
     frame_prefix = PythonExpression(["'", namespace, "'.strip('/')"])
     base_link_frame = PathJoinSubstitution([frame_prefix, "base_link"])
     laser_frame = PathJoinSubstitution([frame_prefix, "laser_frame"])
@@ -43,6 +44,7 @@ def generate_launch_description():
         executable="static_transform_publisher",
         name="static_tf_pub_laser",
         namespace=namespace,
+        remappings=tf_remappings,
         arguments=[
             "0",
             "0",
