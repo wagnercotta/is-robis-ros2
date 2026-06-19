@@ -37,7 +37,7 @@ class OdriveNode(Node):
         )
         self.timer_manage_hardware = self.create_timer(1, self.slow_timer)
         self.vel_subscriber = self.create_subscription(
-            Twist, "/cmd_vel", self.cmd_vel_callback, 10
+            Twist, "cmd_vel", self.cmd_vel_callback, 10
         )
         self.raw_odom_publisher_encoder_left = self.create_publisher(
             Float64, "odrive/left/raw_odom/encoder", self.odom_calc_hz

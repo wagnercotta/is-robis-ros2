@@ -1,4 +1,4 @@
-ydlidar_ros2_driver_node:
+/**:
   ros__parameters:
     port: /dev/ttyUSB0
     frame_id: laser_frame
@@ -21,4 +21,7 @@ ydlidar_ros2_driver_node:
     range_min: 0.1
     frequency: 10.0
     invalid_range_is_inf: false
+<<<<<<< Updated upstream
     scan_gain: 0.88
+=======
+>>>>>>> Stashed changes
