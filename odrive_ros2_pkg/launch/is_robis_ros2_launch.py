@@ -65,11 +65,24 @@ def generate_launch_description():
         launch_arguments={"namespace": namespace}.items(),
     )
 
+    cmd_navigation_server = Node(
+        package="odrive_ros2_pkg",
+        executable="robis_navigation_server",
+        name="robis_navigation_server",
+        namespace=namespace,
+        output="screen",
+        emulate_tty=True,
+        parameters=[
+            os.path.join(pkg_odrive, "params", "robis_navigation.yaml")
+        ],
+    )
+
     return LaunchDescription(
         [
             namespace_argument,
             cmd_lidar,
             cmd_lidar_tf,
             cmd_odrive,
+            cmd_navigation_server,
         ]
     )

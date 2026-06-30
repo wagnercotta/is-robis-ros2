@@ -49,7 +49,13 @@ class ODriveInterfaceAPI(object):
             self._preroll_completed = True
 
     def __del__(self):
-        self.disconnect()
+        try:
+            if getattr(self, "driver", None) is not None:
+                self.disconnect()
+        except Exception:
+            # Destructors can run during interpreter teardown, when logging and
+            # imported modules may already be unavailable.
+            pass
 
     def update_time(self, curr_time):
         # provided so simulator can update position

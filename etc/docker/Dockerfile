@@ -9,6 +9,10 @@ RUN python3 -m pip install --upgrade odrive
 
 RUN apt-get install -y ros-humble-diagnostic-updater
 RUN apt-get install -y ros-humble-tf-transformations
+RUN apt-get install -y ros-humble-nav2-msgs
+RUN apt-get install -y ros-humble-rmw-cyclonedds-cpp
+RUN apt-get install -y ros-humble-example-interfaces
+
 #RUN apt install -y ros-humble-slam-toolbox
 
 WORKDIR /workspace/ros2_ws
@@ -45,6 +49,8 @@ RUN printf '%s\n' \
 'set -e' \
 '' \
 'source /opt/ros/humble/setup.bash' \
+'' \
+'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' \
 '' \
 'if [ -f /workspace/ros2_ws/install/setup.bash ]; then' \
 '    source /workspace/ros2_ws/install/setup.bash' \

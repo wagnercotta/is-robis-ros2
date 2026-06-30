@@ -1,4 +1,5 @@
 import rclpy
+from rclpy.executors import ExternalShutdownException
 from rclpy.node import Node
 from rcl_interfaces.msg import ParameterDescriptor
 from geometry_msgs.msg import Twist, TransformStamped
@@ -9,8 +10,6 @@ import tf2_ros
 from tf_transformations import quaternion_from_euler
 from std_srvs.srv import Trigger
 
-import signal 
-
 # from odrive_ros2.odrive_interface import ODriveInterfaceAPI
 from odrive_ros2_pkg.odrive_interface import ODriveInterfaceAPI
 
@@ -18,15 +17,15 @@ from odrive_ros2_pkg.odrive_interface import ODriveInterfaceAPI
 class OdriveNode(Node):
     def __init__(self):
         super().__init__("odrive_node")
+        self.driver = None
+        self.driver_engaged = False
+        self._hardware_shutdown = False
         self.get_logger().info("Starting Odrive ROS2 driver.")
         # self.command_queue = Queue.Queue(maxsize=5)
 
         self.init_params()
-        self.driver = ODriveInterfaceAPI(logger=self.get_logger())
-        self.driver.connect()
         # Const to calculate from meter per sec to round per sec
         self.m_s_to_rps = 1 / self.tyre_circumference
-        self.engage_driver()
 
         self.stopped_counter = 0
         self.last_left_linear_val = 0
@@ -72,9 +71,19 @@ class OdriveNode(Node):
             Trigger, "reset_odometry", self.reset_odometry
         )
 
-        self.get_logger().info("Odrive ROS2 driver initialized.")
+        # Connect only after the ROS entities are ready. This keeps a partially
+        # constructed node from leaving the motors engaged if setup fails.
+        self.driver = ODriveInterfaceAPI(logger=self.get_logger())
+        try:
+            if not self.driver.connect():
+                raise RuntimeError("Failed to connect to the ODrive controller.")
+            if not self.engage_driver():
+                raise RuntimeError("Failed to engage the ODrive motors.")
+        except Exception:
+            self.shutdown()
+            raise
 
-        signal.signal(signal.SIGINT, self.shutdown_signal_handler) #Captures the Ctrl+C command and calls the motors' disengage routine 
+        self.get_logger().info("Odrive ROS2 driver initialized.")
 
     def init_params(self):
         self.declare_parameter(
@@ -296,12 +305,21 @@ class OdriveNode(Node):
         return response
 
     def engage_driver(self):
-        self.driver.engage()
-        self.driver_engaged = True
-        self.get_logger().info("Motors engaged.")
+        driver = self.driver
+        if driver is None:
+            return False
+
+        self.driver_engaged = bool(driver.engage())
+        if self.driver_engaged:
+            self.get_logger().info("Motors engaged.")
+        return self.driver_engaged
 
     def disengage_driver(self):
-        self.driver.release()
+        driver = self.driver
+        if driver is None or not self.driver_engaged:
+            return
+
+        driver.release()
         self.driver_engaged = False
         self.get_logger().info("Motors disengaged.")
 
@@ -330,12 +348,26 @@ class OdriveNode(Node):
 
         return left_linear_val, right_linear_val
 
-    def __del__(self):
-        self.shutdown()
-
     def shutdown(self):
-        self.driver.release()
-        self.driver.disconnect()
+        """Release the hardware once, including after partial initialization."""
+        if getattr(self, "_hardware_shutdown", False):
+            return
+
+        self._hardware_shutdown = True
+        driver = getattr(self, "driver", None)
+        try:
+            if driver is not None and getattr(driver, "driver", None) is not None:
+                driver.disconnect()
+        except Exception as exc:
+            try:
+                self.get_logger().error(f"Error while disconnecting ODrive: {exc}")
+            except Exception:
+                # The ROS logging context may already be gone during process
+                # teardown; hardware cleanup must still remain non-throwing.
+                pass
+        finally:
+            self.driver_engaged = False
+            self.driver = None
 
     def fast_timer(self):
         """For hardware related tasks"""
@@ -392,14 +424,6 @@ class OdriveNode(Node):
         self.bus_voltage = self.driver.bus_voltage()
         # print(self.vel_l, self.vel_r)
 
-    # Function to handle keyboard interruption Ctrl+C (SIGINT) 
-    def shutdown_signal_handler(self, signum, frame):
-        if self.driver_engaged:
-            self.get_logger().info("Ctrl+C captured, stopping Rob...")
-            self.disengage_driver()  # Stops rob but still keeps the node active
-        self.shutdown()  
-        rclpy.shutdown() #kills the node
-        
     def publish_current(self, time_now):
         self.current_publisher_left.publish(Float64(data=self.current_l))
         self.current_publisher_right.publish(Float64(data=self.current_r))
@@ -545,19 +569,24 @@ class OdriveNode(Node):
 def main(args=None):
     print("Starting Odrive ROS2 driver.")
     rclpy.init(args=args)
-    while True:
-        try:
-            node = OdriveNode()
-            rclpy.spin(node)
-        except Exception as e:
-            print(f"Exception: {e}")
-
-    # Destroy the node explicitly
-    # (optional - otherwise it will be done automatically
-    # when the garbage collector destroys the node object)
-    # node.shutdown()
-    # node.destroy_node()
-    # rclpy.shutdown()
+    node = None
+    try:
+        node = OdriveNode()
+        rclpy.spin(node)
+    except (KeyboardInterrupt, ExternalShutdownException):
+        pass
+    except Exception as exc:
+        if node is not None:
+            node.get_logger().error(f"Odrive node failed: {exc}")
+        else:
+            print(f"Odrive node failed during initialization: {exc}")
+        raise
+    finally:
+        if node is not None:
+            node.shutdown()
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 
 if __name__ == "__main__":

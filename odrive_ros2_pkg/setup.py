@@ -28,6 +28,12 @@ setup(
     license="TODO: License declaration",
     tests_require=["pytest"],
     entry_points={
-        "console_scripts": ["odrive_node = odrive_ros2_pkg.odrive_node:main"],
+        "console_scripts": [
+            "odrive_node = odrive_ros2_pkg.odrive_node:main",
+            (
+                "robis_navigation_server = "
+                "odrive_ros2_pkg.robis_navigation_server:main"
+            ),
+        ],
     },
 )

@@ -6,6 +6,7 @@ The ROS 2 package is in `odrive_ros2_pkg`.
 
 ```bash
 docker buildx build --platform linux/arm64 --push \
+  -f etc/docker/Dockerfile \
   -t 10.20.5.15:5000/wagnercotta/is-robis-ros2:latest .
 ```
 
