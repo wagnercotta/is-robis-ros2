@@ -1,66 +1,74 @@
+# syntax=docker/dockerfile:1.7
+
 FROM ros:humble
 
-RUN apt update
-RUN apt install -y usbutils net-tools software-properties-common wget
-RUN apt-get install -y libjpeg-dev libjpeg8-dev libfreetype6-dev vim
+ENV DEBIAN_FRONTEND=noninteractive \
+    RMW_IMPLEMENTATION=rmw_cyclonedds_cpp \
+    ROBOT_NAMESPACE=robis
 
-RUN wget https://bootstrap.pypa.io/get-pip.py && python3 get-pip.py
-RUN python3 -m pip install --upgrade odrive
+SHELL ["/bin/bash", "-c"]
 
-RUN apt-get install -y ros-humble-diagnostic-updater
-RUN apt-get install -y ros-humble-tf-transformations
-RUN apt-get install -y ros-humble-nav2-msgs
-RUN apt-get install -y ros-humble-rmw-cyclonedds-cpp
-RUN apt-get install -y ros-humble-example-interfaces
+# Keep system and ROS dependencies ahead of local source code so application
+# changes do not invalidate these expensive layers.
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update \
+    && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        libfreetype6-dev \
+        libjpeg-dev \
+        net-tools \
+        pkg-config \
+        python3-pip \
+        ros-humble-diagnostic-updater \
+        ros-humble-example-interfaces \
+        ros-humble-nav2-bringup \
+        ros-humble-rmw-cyclonedds-cpp \
+        ros-humble-robot-localization \
+        ros-humble-tf-transformations \
+        usbutils \
+        vim
 
-#RUN apt install -y ros-humble-slam-toolbox
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install odrive==0.6.11.post0
 
-WORKDIR /workspace/ros2_ws
-RUN mkdir -p src
-COPY odrive_ros2_pkg/ src/odrive_ros2_pkg/
-
-WORKDIR /workspace/ros2_ws
-RUN colcon build --packages-select odrive_ros2_pkg
-
-SHELL [ "/bin/bash" , "-c" ]
-
-# Lidar
-RUN apt install cmake pkg-config
-
+# Build third-party lidar dependencies before copying the frequently changing
+# Robis package. Docker can then reuse these layers across normal development.
 WORKDIR /workspace
-
-RUN git clone https://github.com/matheusdutra0207/YDLidar-SDK.git
-WORKDIR /workspace/YDLidar-SDK/build
-RUN cmake ..
-RUN make
-RUN make install
-RUN cpack
+RUN git clone --depth 1 https://github.com/matheusdutra0207/YDLidar-SDK.git \
+    && cmake -S YDLidar-SDK -B YDLidar-SDK/build \
+    && cmake --build YDLidar-SDK/build --parallel "$(nproc)" \
+    && cmake --install YDLidar-SDK/build
 
 WORKDIR /workspace/ros2_ws
-
-RUN cd src/ \
-    && git clone -b humble https://github.com/matheusdutra0207/ydlidar_ros2_driver.git \
-    && cd .. \
+RUN mkdir -p src \
+    && git clone --depth 1 --branch humble \
+        https://github.com/matheusdutra0207/ydlidar_ros2_driver.git \
+        src/ydlidar_ros2_driver \
     && source /opt/ros/humble/setup.bash \
     && colcon build --packages-select ydlidar_ros2_driver
 
 RUN printf '%s\n' \
-'#!/usr/bin/env bash' \
-'set -e' \
-'' \
-'source /opt/ros/humble/setup.bash' \
-'' \
-'export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp' \
-'' \
-'if [ -f /workspace/ros2_ws/install/setup.bash ]; then' \
-'    source /workspace/ros2_ws/install/setup.bash' \
-'fi' \
-'' \
-'exec "$@"' \
-> /ros_entrypoint.sh \
-&& chmod +x /ros_entrypoint.sh
+    '#!/usr/bin/env bash' \
+    'set -e' \
+    '' \
+    'source /opt/ros/humble/setup.bash' \
+    '' \
+    'if [ -f /workspace/ros2_ws/install/setup.bash ]; then' \
+    '    source /workspace/ros2_ws/install/setup.bash' \
+    'fi' \
+    '' \
+    'exec "$@"' \
+    > /ros_entrypoint.sh \
+    && chmod +x /ros_entrypoint.sh
+
+# This is intentionally the final build layer. Editing local launch files,
+# parameters, or Python nodes now rebuilds only this package.
+COPY odrive_ros2_pkg/ src/is_robis_ros2/
+RUN source /opt/ros/humble/setup.bash \
+    && source install/setup.bash \
+    && colcon build --packages-select is_robis_ros2
 
 ENTRYPOINT ["/ros_entrypoint.sh"]
-CMD ["ros2", "launch", "odrive_ros2_pkg", "is_robis_ros2_launch.py", "namespace:=robis"]
-
-WORKDIR /workspace/ros2_ws
+CMD ["/bin/bash", "-lc", "exec ros2 launch is_robis_ros2 is_robis_ros2_launch.py namespace:=\"${ROBOT_NAMESPACE}\""]

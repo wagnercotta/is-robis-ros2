@@ -11,7 +11,7 @@ from tf_transformations import quaternion_from_euler
 from std_srvs.srv import Trigger
 
 # from odrive_ros2.odrive_interface import ODriveInterfaceAPI
-from odrive_ros2_pkg.odrive_interface import ODriveInterfaceAPI
+from is_robis_ros2.odrive_interface import ODriveInterfaceAPI
 
 
 class OdriveNode(Node):

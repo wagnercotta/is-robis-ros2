@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from os import path
 from glob import glob
 
-package_name = "odrive_ros2_pkg"
+package_name = "is_robis_ros2"
 
 setup(
     name=package_name,
@@ -19,6 +19,10 @@ setup(
             path.join("share", package_name, "params"),
             glob("params/*.yaml"),
         ),
+        (
+            path.join("share", package_name, "maps"),
+            glob("maps/*"),
+        ),
     ],
     install_requires=["setuptools", "pyserial==3.5", "transforms3d==0.3.1"],
     zip_safe=True,
@@ -26,14 +30,10 @@ setup(
     maintainer_email="root@todo.todo",
     description="TODO: Package description",
     license="TODO: License declaration",
-    tests_require=["pytest"],
     entry_points={
         "console_scripts": [
-            "odrive_node = odrive_ros2_pkg.odrive_node:main",
-            (
-                "robis_navigation_server = "
-                "odrive_ros2_pkg.robis_navigation_server:main"
-            ),
+            "odrive_node = is_robis_ros2.odrive_node:main",
+            "aruco_pose_converter = is_robis_ros2.aruco_pose_converter:main",
         ],
     },
 )
