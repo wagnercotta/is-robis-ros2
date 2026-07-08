@@ -34,6 +34,7 @@ setup(
         "console_scripts": [
             "odrive_node = is_robis_ros2.odrive_node:main",
             "aruco_pose_converter = is_robis_ros2.aruco_pose_converter:main",
+            "physical_keepalive = is_robis_ros2.physical_keepalive:main",
         ],
     },
 )

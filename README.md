@@ -27,11 +27,15 @@ The container entrypoint sources ROS 2 and the workspace, then runs:
 ros2 launch is_robis_ros2 is_robis_ros2_launch.py namespace:=<robot_namespace>
 ```
 
-The launch starts the ODrive driver, lidar, ArUco pose converter,
-`robot_localization`, map server, and Nav2. Its default map is
+The launch starts the ODrive driver, lidar, ArUco pose converter, physical
+keepalive publisher, `robot_localization`, map server, and Nav2. Its default map is
 `map_cam_odom_exp_170601.yaml`. The local EKF publishes `odom` to
 `base_link`, while the global EKF uses the ArUco pose to publish `map` to
 `odom`. AMCL is not started.
+
+The physical keepalive publishes `std_msgs/msg/Empty` every 10 seconds on
+`/is/Agent/Robot/Robis/PhysicalKeepalive`. The ROS 2 gateway forwards it as
+`google.protobuf.Empty` to `Agent.Robot.Robis.PhysicalKeepalive`.
 
 The image defaults `ROBOT_NAMESPACE` to `robis`. Override it with Docker's
 `-e ROBOT_NAMESPACE=<namespace>` option when needed.

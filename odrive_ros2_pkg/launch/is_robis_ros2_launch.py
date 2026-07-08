@@ -117,6 +117,19 @@ def generate_launch_description():
         output="screen",
         parameters=[{"use_sim_time": use_sim_time, "map_frame": "map"}],
     )
+    physical_keepalive = Node(
+        package="is_robis_ros2",
+        executable="physical_keepalive",
+        name="physical_keepalive_publisher",
+        namespace=namespace,
+        output="screen",
+        parameters=[
+            {
+                "topic": "/is/Agent/Robot/Robis/PhysicalKeepalive",
+                "period_seconds": 10.0,
+            }
+        ],
+    )
     ekf_local = Node(
         package="robot_localization",
         executable="ekf_node",
@@ -193,6 +206,7 @@ def generate_launch_description():
             lidar_transform,
             odrive,
             aruco_converter,
+            physical_keepalive,
             ekf_local,
             ekf_global,
             map_server,
